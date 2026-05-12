@@ -1,26 +1,27 @@
-const path = require("path");
+import path from "path";
+import { fileURLToPath } from "url";
+import { conectarDB } from "./database.js";
 
-const express = require("express");
-const cors = require("cors");
-const bcrypt = require("bcrypt");
-const jwt = require("jsonwebtoken");
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
-const http = require("http");
-const { Server } = require("socket.io");
+
+import express from "express";
+import cors from "cors";
+import bcrypt from "bcrypt";
+import jwt from "jsonwebtoken";
+
+import http from "http";
+import { Server } from "socket.io";
 
 const app = express();
+
+const db = await conectarDB();
 
 /* =========================================
    📦 BANCO TEMPORÁRIO
 ========================================= */
-const usuarios = [
-  {
-    nome: "Admin",
-    email: "admin@email.com",
-    senha: bcrypt.hashSync("123456", 10),
-    role: "admin"
-  }
-];
+const usuarios = [];
 
 const atividades = [];
 
@@ -49,6 +50,7 @@ const logs = [];
 app.use(cors());
 app.use(express.json());
 
+
 /* =========================================
    🔌 SOCKET.IO
 ========================================= */
@@ -64,6 +66,7 @@ io.on("connection", (socket) => {
 
   console.log("✅ Usuário conectado");
 
+  // 💬 CHAT
   socket.on("chat", (data) => {
 
     io.emit("chat", {
@@ -111,7 +114,7 @@ function authMiddleware(req, res, next) {
 
 }
 
-function registrarAtividade(acao) {
+  function registrarAtividade(acao) {
 
   const novaAtividade = {
     acao,
@@ -135,6 +138,7 @@ function adicionarLog(acao, usuario) {
   io.emit("logsUpdate");
 
 }
+
 
 /* =========================================
    👮 CONTROLE DE ROLE
@@ -166,9 +170,13 @@ app.post("/login", async (req, res) => {
 
     const { email, senha } = req.body;
 
-    const usuario = usuarios.find(
-      (u) => u.email === email
-    );
+    const usuario = await db.get(
+  `
+  SELECT * FROM usuarios
+  WHERE email = ?
+  `,
+  [email]
+);
 
     if (!usuario) {
 
@@ -203,8 +211,8 @@ app.post("/login", async (req, res) => {
     );
 
     registrarAtividade(
-      `🟢 ${usuario.nome} entrou no sistema`
-    );
+  `🟢 ${usuario.nome} entrou no sistema`
+);
 
     return res.json({
       success: true,
@@ -246,9 +254,13 @@ app.post("/register", async (req, res) => {
 
     }
 
-    const usuarioExistente = usuarios.find(
-      (u) => u.email === email
-    );
+    const usuarioExistente = await db.get(
+  `
+  SELECT * FROM usuarios
+  WHERE email = ?
+  `,
+  [email]
+);
 
     if (usuarioExistente) {
 
@@ -270,22 +282,40 @@ app.post("/register", async (req, res) => {
       role: "vendedor"
     };
 
-    usuarios.push(novoUsuario);
+    await db.run(
+  `
+  INSERT INTO usuarios
+  (nome, email, senha, role)
+  VALUES (?, ?, ?, ?)
+  `,
+  [
+    nome,
+    email,
+    senhaHash,
+    "vendedor"
+  ]
+);
 
     adicionarLog(
-      "Novo usuário cadastrado",
-      novoUsuario.nome
-    );
+  "Novo usuário cadastrado",
+  novoUsuario.nome
+);
 
+    // 🔔 NOTIFICAÇÃO
     io.emit("notificacao", {
       mensagem: `Novo usuário cadastrado: ${nome} 🚀`
     });
 
+    
+    // 🔄 ATUALIZA DASHBOARD
     io.emit("dashboardUpdate");
 
     registrarAtividade(
-      `👤 Novo usuário cadastrado: ${nome}`
-    );
+  `👤 Novo usuário cadastrado: ${nome}`
+);
+
+    console.log("✅ Usuário criado:");
+    console.log(novoUsuario);
 
     return res.json({
       success: true,
@@ -312,17 +342,16 @@ app.get(
   authMiddleware,
   checkRole("admin"),
 
-  (req, res) => {
+  async (req, res) => {
 
-    const usuariosSemSenha = usuarios.map(
-      (u) => ({
-        nome: u.nome,
-        email: u.email,
-        role: u.role
-      })
-    );
+    const usuarios = await db.all(
+  `
+  SELECT nome, email, role
+  FROM usuarios
+  `
+);
 
-    return res.json(usuariosSemSenha);
+return res.json(usuarios);
 
   }
 );
@@ -357,10 +386,11 @@ app.post("/vendas", (req, res) => {
     vendas.push(novaVenda);
 
     adicionarLog(
-      "Nova venda realizada",
-      cliente
-    );
+  "Nova venda realizada",
+  cliente
+);
 
+    // 🔔 NOTIFICAÇÃO
     io.emit("notificacao", {
       mensagem: `Nova venda para ${cliente} 💰`
     });
@@ -368,8 +398,11 @@ app.post("/vendas", (req, res) => {
     io.emit("dashboardUpdate");
 
     registrarAtividade(
-      `💰 Nova venda criada para ${cliente}`
-    );
+  `💰 Nova venda criada para ${cliente}`
+);
+
+    console.log("💰 Venda criada:");
+    console.log(novaVenda);
 
     return res.json({
       success: true
@@ -409,10 +442,14 @@ app.get(
   "/dashboard",
   authMiddleware,
 
-  (req, res) => {
+  async (req, res) => {
 
-    const totalUsuarios =
-      usuarios.length;
+    const usuariosDB = await db.all(
+  "SELECT * FROM usuarios"
+);
+
+const totalUsuarios =
+  usuariosDB.length;
 
     const totalVendas =
       vendas.reduce(
@@ -454,15 +491,15 @@ app.get(
   }
 );
 
-app.get("/atividades", (req, res) => {
+  app.get("/atividades", (req, res) => {
 
   res.json(atividades);
 
 });
 
-/* =========================================
-   🔐 ALTERAR SENHA
-========================================= */
+// =========================================
+// 🔐 ALTERAR SENHA
+// =========================================
 app.put("/alterar-senha", async (req, res) => {
 
   try {
@@ -473,9 +510,13 @@ app.put("/alterar-senha", async (req, res) => {
       novaSenha
     } = req.body;
 
-    const usuario = usuarios.find(
-      (u) => u.email === email
-    );
+    const usuario = await db.get(
+  `
+  SELECT * FROM usuarios
+  WHERE email = ?
+  `,
+  [email]
+);
 
     if (!usuario) {
 
@@ -505,7 +546,14 @@ app.put("/alterar-senha", async (req, res) => {
         10
       );
 
-    usuario.senha = novaSenhaHash;
+    await db.run(
+  `
+  UPDATE usuarios
+  SET senha = ?
+  WHERE email = ?
+  `,
+  [novaSenhaHash, email]
+);
 
     return res.json({
       success: true
@@ -523,15 +571,20 @@ app.put("/alterar-senha", async (req, res) => {
 
 });
 
+app.use(
+  express.static(
+    path.join(__dirname, "../frontend/dist")
+  )
+);
+
+
 /* =========================================
    🚀 START
 ========================================= */
-const PORT = process.env.PORT || 3000;
-
-server.listen(PORT, () => {
+server.listen(3000, () => {
 
   console.log(
-    `🚀 API rodando na porta ${PORT}`
+    "🚀 API rodando na porta 3000"
   );
 
 });
