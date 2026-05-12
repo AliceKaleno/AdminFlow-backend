@@ -18,9 +18,6 @@ const app = express();
 
 const db = await conectarDB();
 
-/* =========================================
-   📦 BANCO TEMPORÁRIO
-========================================= */
 const usuarios = [];
 
 const atividades = [];
@@ -51,9 +48,6 @@ app.use(cors());
 app.use(express.json());
 
 
-/* =========================================
-   🔌 SOCKET.IO
-========================================= */
 const server = http.createServer(app);
 
 const io = new Server(server, {
@@ -66,7 +60,6 @@ io.on("connection", (socket) => {
 
   console.log("✅ Usuário conectado");
 
-  // 💬 CHAT
   socket.on("chat", (data) => {
 
     io.emit("chat", {
@@ -78,9 +71,6 @@ io.on("connection", (socket) => {
 
 });
 
-/* =========================================
-   🔒 MIDDLEWARE JWT
-========================================= */
 function authMiddleware(req, res, next) {
 
   const token = req.headers.authorization;
@@ -140,9 +130,6 @@ function adicionarLog(acao, usuario) {
 }
 
 
-/* =========================================
-   👮 CONTROLE DE ROLE
-========================================= */
 function checkRole(role) {
 
   return (req, res, next) => {
@@ -161,9 +148,7 @@ function checkRole(role) {
 
 }
 
-/* =========================================
-   🔐 LOGIN
-========================================= */
+
 app.post("/login", async (req, res) => {
 
   try {
@@ -237,9 +222,6 @@ app.post("/login", async (req, res) => {
 
 });
 
-/* =========================================
-   🆕 CADASTRO
-========================================= */
 app.post("/register", async (req, res) => {
 
   try {
@@ -301,7 +283,6 @@ app.post("/register", async (req, res) => {
   novoUsuario.nome
 );
 
-    // 🔔 NOTIFICAÇÃO
     io.emit("notificacao", {
       mensagem: `Novo usuário cadastrado: ${nome} 🚀`
     });
@@ -334,9 +315,7 @@ app.post("/register", async (req, res) => {
 
 });
 
-/* =========================================
-   👥 LISTAR USUÁRIOS
-========================================= */
+
 app.get(
   "/usuarios",
   authMiddleware,
@@ -356,9 +335,7 @@ return res.json(usuarios);
   }
 );
 
-/* =========================================
-   💰 NOVA VENDA
-========================================= */
+
 app.post("/vendas", (req, res) => {
 
   try {
@@ -390,7 +367,6 @@ app.post("/vendas", (req, res) => {
   cliente
 );
 
-    // 🔔 NOTIFICAÇÃO
     io.emit("notificacao", {
       mensagem: `Nova venda para ${cliente} 💰`
     });
@@ -426,18 +402,14 @@ app.get("/logs", (req, res) => {
 
 });
 
-/* =========================================
-   📦 LISTAR VENDAS
-========================================= */
+
 app.get("/vendas", (req, res) => {
 
   return res.json(vendas);
 
 });
 
-/* =========================================
-   📊 DASHBOARD
-========================================= */
+
 app.get(
   "/dashboard",
   authMiddleware,
@@ -497,9 +469,7 @@ const totalUsuarios =
 
 });
 
-// =========================================
-// 🔐 ALTERAR SENHA
-// =========================================
+
 app.put("/alterar-senha", async (req, res) => {
 
   try {
@@ -578,9 +548,6 @@ app.use(
 );
 
 
-/* =========================================
-   🚀 START
-========================================= */
 server.listen(3000, () => {
 
   console.log(
