@@ -1,9 +1,4 @@
-import path from "path";
-import { fileURLToPath } from "url";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
+const path = require("path");
 
 const express = require("express");
 const cors = require("cors");
@@ -54,7 +49,6 @@ const logs = [];
 app.use(cors());
 app.use(express.json());
 
-
 /* =========================================
    🔌 SOCKET.IO
 ========================================= */
@@ -70,7 +64,6 @@ io.on("connection", (socket) => {
 
   console.log("✅ Usuário conectado");
 
-  // 💬 CHAT
   socket.on("chat", (data) => {
 
     io.emit("chat", {
@@ -118,7 +111,7 @@ function authMiddleware(req, res, next) {
 
 }
 
-  function registrarAtividade(acao) {
+function registrarAtividade(acao) {
 
   const novaAtividade = {
     acao,
@@ -142,7 +135,6 @@ function adicionarLog(acao, usuario) {
   io.emit("logsUpdate");
 
 }
-
 
 /* =========================================
    👮 CONTROLE DE ROLE
@@ -211,8 +203,8 @@ app.post("/login", async (req, res) => {
     );
 
     registrarAtividade(
-  `🟢 ${usuario.nome} entrou no sistema`
-);
+      `🟢 ${usuario.nome} entrou no sistema`
+    );
 
     return res.json({
       success: true,
@@ -281,25 +273,19 @@ app.post("/register", async (req, res) => {
     usuarios.push(novoUsuario);
 
     adicionarLog(
-  "Novo usuário cadastrado",
-  novoUsuario.nome
-);
+      "Novo usuário cadastrado",
+      novoUsuario.nome
+    );
 
-    // 🔔 NOTIFICAÇÃO
     io.emit("notificacao", {
       mensagem: `Novo usuário cadastrado: ${nome} 🚀`
     });
 
-    
-    // 🔄 ATUALIZA DASHBOARD
     io.emit("dashboardUpdate");
 
     registrarAtividade(
-  `👤 Novo usuário cadastrado: ${nome}`
-);
-
-    console.log("✅ Usuário criado:");
-    console.log(novoUsuario);
+      `👤 Novo usuário cadastrado: ${nome}`
+    );
 
     return res.json({
       success: true,
@@ -371,11 +357,10 @@ app.post("/vendas", (req, res) => {
     vendas.push(novaVenda);
 
     adicionarLog(
-  "Nova venda realizada",
-  cliente
-);
+      "Nova venda realizada",
+      cliente
+    );
 
-    // 🔔 NOTIFICAÇÃO
     io.emit("notificacao", {
       mensagem: `Nova venda para ${cliente} 💰`
     });
@@ -383,11 +368,8 @@ app.post("/vendas", (req, res) => {
     io.emit("dashboardUpdate");
 
     registrarAtividade(
-  `💰 Nova venda criada para ${cliente}`
-);
-
-    console.log("💰 Venda criada:");
-    console.log(novaVenda);
+      `💰 Nova venda criada para ${cliente}`
+    );
 
     return res.json({
       success: true
@@ -472,15 +454,15 @@ app.get(
   }
 );
 
-  app.get("/atividades", (req, res) => {
+app.get("/atividades", (req, res) => {
 
   res.json(atividades);
 
 });
 
-// =========================================
-// 🔐 ALTERAR SENHA
-// =========================================
+/* =========================================
+   🔐 ALTERAR SENHA
+========================================= */
 app.put("/alterar-senha", async (req, res) => {
 
   try {
@@ -541,28 +523,15 @@ app.put("/alterar-senha", async (req, res) => {
 
 });
 
-app.use(
-  express.static(
-    path.join(__dirname, "../frontend/dist")
-  )
-);
-
-app.get("*", (req, res) => {
-  res.sendFile(
-    path.join(
-      __dirname,
-      "../frontend/dist/index.html"
-    )
-  );
-});
-
 /* =========================================
    🚀 START
 ========================================= */
-server.listen(3000, () => {
+const PORT = process.env.PORT || 3000;
+
+server.listen(PORT, () => {
 
   console.log(
-    "🚀 API rodando na porta 3000"
+    `🚀 API rodando na porta ${PORT}`
   );
 
 });
