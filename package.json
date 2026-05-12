@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Backend do AdminFlow",
   "main": "server.js",
-  "type": "module",
+  "type": "commonjs",
   "scripts": {
     "start": "node server.js"
   },
